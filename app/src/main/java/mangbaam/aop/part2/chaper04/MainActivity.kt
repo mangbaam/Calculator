@@ -5,6 +5,7 @@ import android.os.Bundle
 import android.text.Spannable
 import android.text.SpannableStringBuilder
 import android.text.style.ForegroundColorSpan
+import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.widget.LinearLayout
@@ -13,15 +14,16 @@ import android.widget.Toast
 import androidx.core.view.isVisible
 import androidx.room.Room
 import mangbaam.aop.part2.chaper04.model.History
+import java.lang.Character.isDigit
 
 class MainActivity : AppCompatActivity() {
 
     private val expressionTextView: TextView by lazy {
-        findViewById<TextView>(R.id.expressionTextView)
+        findViewById(R.id.expressionTextView)
     }
 
     private val resultTextView: TextView by lazy {
-        findViewById<TextView>(R.id.resultTextView)
+        findViewById(R.id.resultTextView)
     }
 
     private val historyLayout: View by lazy {
@@ -36,6 +38,8 @@ class MainActivity : AppCompatActivity() {
 
     private var isOperator = false
     private var hasOperator = false
+    private var numberCount = 0
+    private var openBracketCount = 0
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -65,33 +69,34 @@ class MainActivity : AppCompatActivity() {
             R.id.buttonMulti -> operatorButtonClicked("×")
             R.id.buttonDivider -> operatorButtonClicked("÷")
             R.id.buttonModulo -> operatorButtonClicked("%")
+            R.id.buttonBracket -> bracketButtonClicked()
         }
+        resultTextView.text = "bracketCount: $openBracketCount, numberCount: $numberCount"
     }
 
     private fun numberButtonClicked(number: String) {
-
-        if (isOperator) {
-            expressionTextView.append(" ")
-        }
         isOperator = false
+        val expressionText = expressionTextView.text
 
-        val expressionText = expressionTextView.text.split(" ")
-
-        if (expressionText.isNotEmpty() && expressionText.last().length >= 15) {
+        if (expressionText.isNotEmpty() && numberCount >= 15) {
             Toast.makeText(this, "15 자리 까지만 사용할 수 있습니다.", Toast.LENGTH_SHORT).show()
             return
-        } else if (expressionText.last().isEmpty() && number == "0") {
+        } else if (expressionText.isEmpty() && number == "0") {
             Toast.makeText(this, "0은 제일 앞에 올 수 없습니다.", Toast.LENGTH_SHORT).show()
             return
+        } else if (expressionText.isNotEmpty() && expressionText.last() == ')') {
+            operatorButtonClicked("×")
+            numberCount = 0
         }
 
         expressionTextView.append(number)
-        resultTextView.text = calculateExpression()
+        numberCount++
+        // resultTextView.text = calculateExpression()
 
     }
 
     private fun operatorButtonClicked(operator: String) {
-        if (expressionTextView.text.isEmpty()) {
+        if (expressionTextView.text.isEmpty() || expressionTextView.text.last() == '(') {
             return
         }
 
@@ -100,15 +105,12 @@ class MainActivity : AppCompatActivity() {
                 val text = expressionTextView.text.toString()
                 expressionTextView.text = text.dropLast(1) + operator
             }
-            hasOperator -> {
-                Toast.makeText(this, "연산자는 한 번만 사용할 수 있습니다.", Toast.LENGTH_SHORT).show()
-                return
-            }
             else -> {
-                expressionTextView.append(" $operator")
+                expressionTextView.append(operator)
             }
         }
 
+        // TODO 연산자 여러 개 -> 연산자들 모두 초록색으로
         val ssb = SpannableStringBuilder(expressionTextView.text)
         ssb.setSpan(
             ForegroundColorSpan(getColor(R.color.green)),
@@ -121,6 +123,45 @@ class MainActivity : AppCompatActivity() {
 
         isOperator = true
         hasOperator = true
+        numberCount = 0
+    }
+
+    private fun bracketButtonClicked() {
+        val expressionText = expressionTextView.text    // 식
+        val lastChar = expressionText.last()    // 마지막 문자
+        val digits = listOf('1', '2', '3', '4', '5', '6', '7', '8', '9', '0') // TODO 이거 줄이는 방법 찾기
+
+        if (expressionText.isEmpty()) {        // 식이 비어있는 경우
+            expressionTextView.append("(")
+            openBracketCount++
+        }
+
+        if (openBracketCount < 0) {
+            Log.d("BracketError", "$openBracketCount is negative")
+        } else if (openBracketCount == 0) { // 괄호의 짝이 다 맞는 경우
+            when {
+                lastChar in digits || lastChar == ')' -> {
+                    operatorButtonClicked("×")
+                    expressionTextView.append("(")
+                }
+                lastChar == '(' || isOperator -> expressionTextView.append("(")
+            }
+            openBracketCount++
+            numberCount = 0
+        } else if (openBracketCount > 0) {
+            when {
+                lastChar in digits || lastChar == ')' -> {
+                    expressionTextView.append(")")
+                    openBracketCount--
+                }
+                lastChar == '(' || isOperator -> {
+                    expressionTextView.append("(")
+                    openBracketCount++
+                }
+            }
+        }
+        numberCount = 0
+        isOperator = false
     }
 
     fun resultButtonClicked(v: View) {
@@ -129,7 +170,7 @@ class MainActivity : AppCompatActivity() {
             return
         }
 
-        if (expressionTexts.size != 3 && hasOperator) {
+        if (openBracketCount > 0 || (expressionTexts.size != 3 && hasOperator)) {
             Toast.makeText(this, "아직 완성되지 않은 수식입니다.", Toast.LENGTH_SHORT).show()
             return
         }
@@ -182,6 +223,8 @@ class MainActivity : AppCompatActivity() {
         resultTextView.text = ""
         isOperator = false
         hasOperator = false
+        numberCount = 0
+        openBracketCount = 0
     }
 
     fun historyButtonClicked(v: View) {
