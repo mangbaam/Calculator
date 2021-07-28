@@ -34,15 +34,17 @@ class MainActivity : AppCompatActivity() {
         findViewById(R.id.historyLinearLayout)
     }
 
-    lateinit var db: AppDatabase
+    private lateinit var db: AppDatabase
+
+    private val expressionList = mutableListOf<String>()
 
     private var isOperator = false
     private var hasOperator = false
     private var numberCount = 0
     private var openBracketCount = 0
     private var isDotIn = false
-    private val digits =
-        listOf('1', '2', '3', '4', '5', '6', '7', '8', '9', '0', '.') // TODO 이거 줄이는 방법 찾기
+    /*private val digits = ListOf("1", "2", "3", "4", "5", "6", "7", "8", "9", "0", ".")*/
+    private val digits = ((0..9).map { it -> it.toString() } + ".").toList() // 0~9, "."
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -53,6 +55,9 @@ class MainActivity : AppCompatActivity() {
             AppDatabase::class.java,
             "historyDB"
         ).build()
+
+        val s = (1..9).map { it.toString() }.toMutableList()
+        Log.d("TEST", "s: $s")
     }
 
     fun buttonClicked(v: View) {
@@ -72,70 +77,69 @@ class MainActivity : AppCompatActivity() {
             R.id.buttonMulti -> operatorButtonClicked("×")
             R.id.buttonDivider -> operatorButtonClicked("÷")
             R.id.buttonModulo -> operatorButtonClicked("%")
-            R.id.buttonBracket -> bracketButtonClicked()
-            R.id.buttonDot -> dotButtonClicked()
         }
-        resultTextView.text = "bracketCount: $openBracketCount, numberCount: $numberCount"
+        resultTextView.text = "bracketCount: $openBracketCount, List: $expressionList"
     }
 
-    private fun dotButtonClicked() {
+    fun dotButtonClicked(v: View) {
         val expressionText = expressionTextView.text.toString()
 
         if (isDotIn) return
-        else if (expressionText.isEmpty()) {
-            expressionTextView.append("0")
+        else if (expressionList.isEmpty()) {
+            expressionTextView.append("0.")
         } else {
-            val lastChar = expressionText.last()
             when {
                 isOperator ||
-                        lastChar == '(' -> expressionTextView.append("0")
-                lastChar == ')' -> {
+                        expressionList.last() == "(" -> expressionList.add("0.")
+                expressionList.last() == ")" -> {
                     operatorButtonClicked("×")
-                    expressionTextView.append("0")
+                    expressionList.add("0.")
                 }
+                expressionList.last().isNumber() -> expressionList[expressionList.lastIndex] =
+                    expressionList.last()+"."
             }
         }
-        expressionTextView.append(".")
+        expressionTextView.text = expressionList.joinToString("")
         numberCount++
         isDotIn = true
     }
 
     private fun numberButtonClicked(number: String) {
         isOperator = false
-        val expressionText = expressionTextView.text
 
-        if (expressionText.isNotEmpty() && numberCount >= 15) {
+        if (expressionList.isNotEmpty() && numberCount >= 15) {
             Toast.makeText(this, "15 자리 까지만 사용할 수 있습니다.", Toast.LENGTH_SHORT).show()
             return
-        } else if (expressionText.isEmpty() && number == "0") {
+        } else if (expressionList.isEmpty() && number == "0") {
             Toast.makeText(this, "0은 제일 앞에 올 수 없습니다.", Toast.LENGTH_SHORT).show()
             return
-        } else if (expressionText.isNotEmpty() && expressionText.last() == ')') {
+        } else if (expressionList.isNotEmpty() && expressionList.last() == ")") {
             operatorButtonClicked("×")
             numberCount = 0
         }
 
-        expressionTextView.append(number)
+        if (numberCount == 0 || expressionList.isEmpty()) {
+            expressionList.add(number)
+        } else {
+            expressionList[expressionList.lastIndex] = expressionList.last() + number
+        }
+
+        expressionTextView.text = expressionList.joinToString("")
         numberCount++
         // resultTextView.text = calculateExpression()
 
     }
 
     private fun operatorButtonClicked(operator: String) {
-        if (expressionTextView.text.isEmpty() || expressionTextView.text.last() == '(') {
+        if (expressionList.isEmpty() || expressionList.last() == "(") {
             return
         }
 
         when {
-            isOperator -> {
-                val text = expressionTextView.text.toString()
-                expressionTextView.text = text.dropLast(1) + operator
-            }
-            else -> {
-                expressionTextView.append(operator)
-            }
+            isOperator -> expressionList[expressionList.lastIndex] = operator
+            else -> expressionList.add(operator)
         }
-
+/*
         // TODO 연산자 여러 개 -> 연산자들 모두 초록색으로
         val ssb = SpannableStringBuilder(expressionTextView.text)
         ssb.setSpan(
@@ -145,7 +149,9 @@ class MainActivity : AppCompatActivity() {
             Spannable.SPAN_EXCLUSIVE_EXCLUSIVE
         )
 
-        expressionTextView.text = ssb
+        expressionTextView.text = ssb*/
+
+        expressionTextView.text = expressionList.joinToString("")
 
         isOperator = true
         hasOperator = true
@@ -153,45 +159,47 @@ class MainActivity : AppCompatActivity() {
         numberCount = 0
     }
 
-    private fun bracketButtonClicked() {
-        val expressionText = expressionTextView.text    // 식
-        val lastChar = expressionText.last()    // 마지막 문자
-
-        if (expressionText.isEmpty()) {        // 식이 비어있는 경우
-            expressionTextView.append("(")
+    fun bracketButtonClicked(v: View) {
+        if (expressionList.isEmpty()) {        // 식이 비어있는 경우
+            expressionList.add("(")
             openBracketCount++
+        } else {
+            val lastChar = expressionList.last()
+
+            if (openBracketCount < 0) {
+                Log.d("BracketError", "$openBracketCount is negative")
+            } else if (openBracketCount == 0) { // 괄호의 짝이 다 맞는 경우
+                when {
+                    lastChar == "(" || isOperator -> expressionList.add("(")
+                    lastChar.isNumber() || lastChar == ")" -> {
+                        operatorButtonClicked("×")
+                        expressionList.add("(")
+                    }
+                }
+                openBracketCount++
+                numberCount = 0
+            } else if (openBracketCount > 0) {
+                when {
+                    lastChar.isNumber() || lastChar == ")" -> {
+                        expressionList.add(")")
+                        openBracketCount--
+                    }
+                    lastChar == "(" || isOperator -> {
+                        expressionList.add("(")
+                        openBracketCount++
+                    }
+                }
+            }
         }
 
-        if (openBracketCount < 0) {
-            Log.d("BracketError", "$openBracketCount is negative")
-        } else if (openBracketCount == 0) { // 괄호의 짝이 다 맞는 경우
-            when {
-                lastChar in digits || lastChar == ')' -> {
-                    operatorButtonClicked("×")
-                    expressionTextView.append("(")
-                }
-                lastChar == '(' || isOperator -> expressionTextView.append("(")
-            }
-            openBracketCount++
-            numberCount = 0
-        } else if (openBracketCount > 0) {
-            when {
-                lastChar in digits || lastChar == ')' -> {
-                    expressionTextView.append(")")
-                    openBracketCount--
-                }
-                lastChar == '(' || isOperator -> {
-                    expressionTextView.append("(")
-                    openBracketCount++
-                }
-            }
-        }
         isDotIn = false
         numberCount = 0
         isOperator = false
+
+        expressionTextView.text = expressionList.joinToString("")
     }
 
-    fun resultButtonClicked() {
+    fun resultButtonClicked(v: View) {
         val expressionTexts = expressionTextView.text.split(" ")
         if (expressionTextView.text.isEmpty() || expressionTexts.size == 1) {
             return
@@ -246,9 +254,10 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    fun clearButtonClicked() {
+    fun clearButtonClicked(v: View) {
         expressionTextView.text = ""
         resultTextView.text = ""
+        expressionList.clear()
         isOperator = false
         hasOperator = false
         isDotIn = false
@@ -290,7 +299,7 @@ class MainActivity : AppCompatActivity() {
 
 fun String.isNumber(): Boolean {
     return try {
-        this.toBigInteger()
+        this.toBigDecimal()
         true
     } catch (e: NumberFormatException) {
         false
