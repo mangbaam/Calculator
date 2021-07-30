@@ -47,9 +47,11 @@ class MainActivity : AppCompatActivity() {
     private var numberCount = 0
     private var openBracketCount = 0
     private var isDotIn = false
+    private var isResultClicked = false
 
     private fun priority(op: String): Int {
         return when (op) {
+            "(" -> 0
             "+", "-" -> 1
             "×", "÷", "%" -> 2
             // "^" -> 3
@@ -86,11 +88,16 @@ class MainActivity : AppCompatActivity() {
             R.id.buttonDivider -> operatorButtonClicked("÷")
             R.id.buttonModulo -> operatorButtonClicked("%")
         }
-        resultTextView.text = NumberFormat.getNumberInstance(Locale.US).format(calculateExpression().toBigDecimal()).toString()
-        Log.d("MainActivity", "infix: ${expressionList.joinToString("")}, postfix: ${toPostfix().joinToString(" ")}, result: ${resultTextView.text}")
+        Log.d("MainActivity", "expressionList: $expressionList")
     }
 
     fun dotButtonClicked(v: View) {
+        isOperator = false
+        if (isResultClicked) {
+            expressionTextView.text = ""
+            expressionList.clear()
+            isResultClicked = false
+        }
         when {
             isDotIn -> return
             expressionList.isEmpty() -> {
@@ -109,7 +116,6 @@ class MainActivity : AppCompatActivity() {
                 }
             }
         }
-//        expressionTextView.text = expressionList.joinToString("")
         expressionTextView.text = getExpressionText()
         numberCount++
         isDotIn = true
@@ -117,8 +123,11 @@ class MainActivity : AppCompatActivity() {
 
     private fun numberButtonClicked(number: String) {
         isOperator = false
-
-        if (expressionList.isNotEmpty() && numberCount >= 15) {
+        if (isResultClicked) {
+            expressionTextView.text = ""
+            expressionList.clear()
+            isResultClicked = false
+        } else if (expressionList.isNotEmpty() && numberCount >= 15) {
             Toast.makeText(this, "15 자리 까지만 사용할 수 있습니다.", Toast.LENGTH_SHORT).show()
             return
         } else if (expressionList.isEmpty() && number == "0") {
@@ -129,13 +138,12 @@ class MainActivity : AppCompatActivity() {
             numberCount = 0
         }
 
-        if (numberCount == 0 || expressionList.isEmpty()) {
+        if (numberCount == 0 || expressionList.isEmpty()) {     // 새로 숫자가 입력되는 경우
             expressionList.add(number)
-        } else {
+        } else {    // 숫자가 계속 입력되는 경우
             expressionList[expressionList.lastIndex] = expressionList.last() + number
         }
 
-//        expressionTextView.text = expressionList.joinToString("")
         expressionTextView.text = getExpressionText()
         numberCount++
 
@@ -144,6 +152,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun operatorButtonClicked(operator: String) {
+        isResultClicked = false
         if (expressionList.isEmpty() || expressionList.last() == "(") {
             return
         }
@@ -163,7 +172,6 @@ class MainActivity : AppCompatActivity() {
 
         expressionTextView.text = ssb*/
 
-//        expressionTextView.text = expressionList.joinToString("")
         expressionTextView.text = getExpressionText()
 
         isOperator = true
@@ -173,6 +181,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     fun bracketButtonClicked(v: View) {
+        isResultClicked = false
         if (expressionList.isEmpty()) {        // 식이 비어있는 경우
             expressionList.add("(")
             openBracketCount++
@@ -213,7 +222,6 @@ class MainActivity : AppCompatActivity() {
         numberCount = 0
         isOperator = false
 
-//        expressionTextView.text = expressionList.joinToString("")
         expressionTextView.text = getExpressionText()
     }
 
@@ -224,23 +232,27 @@ class MainActivity : AppCompatActivity() {
             return
         }
 
+        val expressionText = expressionList.joinToString("")
         val resultText = calculateExpression()
 
+        // DB에 계산 결과 저장
         Thread(Runnable {
             db.historyDao()
-                .insertHistory(History(null, expressionList.joinToString(""), resultText))
+                .insertHistory(History(null, expressionText, resultText))
         }).start()
 
         resultTextView.text = ""
-        expressionTextView.text = NumberFormat.getNumberInstance(Locale.US).format(resultText.toBigDecimal()).toString()
+        expressionTextView.text = resultText
+
 
         expressionList.clear()
-        expressionList.add(resultText)
+        expressionList.add(resultText.replace(",", ""))
 
         isDotIn = false
         isOperator = false
         hasOperator = false
         numberCount = 0
+        isResultClicked = true
         openBracketCount = 0
     }
 
@@ -277,13 +289,15 @@ class MainActivity : AppCompatActivity() {
                 }
             }
         }
-        return stack.peek()
+        return NumberFormat.getInstance(Locale.US).format(stack.peek().toBigDecimal()).toString()
     }
 
     private fun toPostfix(): List<String> {
         val stack = Stack<String>()
         val resultList = mutableListOf<String>()
-        var expList = expressionList
+
+        var expList = mutableListOf<String>()
+        expList.addAll(expressionList)
 
         if (expList.last().isOperator())
             expList = expList.dropLast(1) as MutableList<String>
@@ -291,6 +305,7 @@ class MainActivity : AppCompatActivity() {
         if (openBracketCount > 0)
             for (i in 1..openBracketCount)
                 expList.add(")")
+        Log.d("MainActivity", "expList: $expList")
 
         for (exp in expList) {
             when {
@@ -303,6 +318,9 @@ class MainActivity : AppCompatActivity() {
                     stack.pop()
                 }
                 else -> {
+                    if (priority(exp) == -1) {
+                        Toast.makeText(this, "잘못된 수식 입력!", Toast.LENGTH_SHORT).show()
+                    }
                     while (stack.isNotEmpty() && priority(exp) <= priority(stack.peek())) {
                         resultList.add(stack.pop())
                     }
@@ -317,7 +335,6 @@ class MainActivity : AppCompatActivity() {
             }
             resultList.add(stack.pop())
         }
-
         return resultList
     }
 
@@ -337,7 +354,6 @@ class MainActivity : AppCompatActivity() {
         historyLinearLayout.removeAllViews()
 
         Thread(Runnable {
-
             db.historyDao().getAll().reversed().forEach {
                 runOnUiThread {
                     val historyView =
@@ -369,7 +385,12 @@ class MainActivity : AppCompatActivity() {
 
         for (c in exp) {
             when {
-                c.isNumber() -> expressionText += NumberFormat.getInstance(Locale.US).format(c.toBigDecimal()).toString()
+                c.isNumber() -> {
+                    expressionText += NumberFormat.getInstance(Locale.US).format(c.toBigDecimal())
+                        .toString()
+                    Log.d("MainAcitivy", "c: $c, c.last: ${c.last()}")
+                    if (c.last()=='.') expressionText = "$expressionText."
+                }
                 /*c.isOperator() -> {
                     expressionText += c
                     val ssb = SpannableStringBuilder(expressionText)

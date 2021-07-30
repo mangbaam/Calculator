@@ -21,15 +21,17 @@
         android:layout_width="0dp"
         android:layout_height="wrap_content"
         android:layout_marginStart="15dp"
-        android:layout_marginTop="34dp"
+        android:layout_marginTop="32dp"
         android:layout_marginEnd="15dp"
         android:gravity="end"
         android:textColor="@color/black"
-        android:textSize="30sp"
+        android:textSize="48dp"
         app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintHorizontal_bias="0.0"
         app:layout_constraintRight_toRightOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toTopOf="parent" />
+        app:layout_constraintTop_toTopOf="parent"
+        tools:text="111,234,567,890" />
 
     <TextView
         android:id="@+id/resultTextView"
@@ -311,8 +313,6 @@
                 android:layout_margin="7dp"
                 android:background="@drawable/button_background_green"
                 android:onClick="resultButtonClicked"
-                android:clickable="false"
-                android:enabled="false"
                 android:stateListAnimator="@null"
                 android:text="="
                 android:textColor="@color/white"
@@ -330,7 +330,7 @@
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="@+id/keypadTableLayout"
-        tools:visibility="visible">
+        tools:visibility="gone">
 
         <androidx.appcompat.widget.AppCompatButton
             android:id="@+id/closeButton"
