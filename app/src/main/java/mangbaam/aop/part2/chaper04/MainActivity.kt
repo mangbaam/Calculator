@@ -2,9 +2,6 @@ package mangbaam.aop.part2.chaper04
 
 import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
-import android.text.Spannable
-import android.text.SpannableStringBuilder
-import android.text.style.ForegroundColorSpan
 import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
@@ -88,7 +85,6 @@ class MainActivity : AppCompatActivity() {
             R.id.buttonDivider -> operatorButtonClicked("÷")
             R.id.buttonModulo -> operatorButtonClicked("%")
         }
-        Log.d("MainActivity", "expressionList: $expressionList")
     }
 
     fun dotButtonClicked(v: View) {
@@ -259,11 +255,12 @@ class MainActivity : AppCompatActivity() {
     private fun calculateExpression(): String {
         val stack = Stack<String>()
         val exp = toPostfix()
+        if (exp.isEmpty()) return ""
 
         for (c in exp) {
             when {
                 stack.isEmpty() || c.isNumber() -> stack.push(c)
-                stack.size >= 2 && c.isOperator() -> {
+                stack.size >= 2 && c.isOp() -> {
                     try {
                         val num2 = stack.pop().toBigDecimal()
                         val num1 = stack.pop().toBigDecimal()
@@ -289,7 +286,7 @@ class MainActivity : AppCompatActivity() {
                 }
             }
         }
-        return NumberFormat.getInstance(Locale.US).format(stack.peek().toBigDecimal()).toString()
+        return if(stack.peek().isNumber()) NumberFormat.getInstance(Locale.US).format(stack.peek().toBigDecimal()).toString() else ""
     }
 
     private fun toPostfix(): List<String> {
@@ -299,13 +296,12 @@ class MainActivity : AppCompatActivity() {
         var expList = mutableListOf<String>()
         expList.addAll(expressionList)
 
-        if (expList.last().isOperator())
+        if (expList.last().isOp())
             expList = expList.dropLast(1) as MutableList<String>
 
         if (openBracketCount > 0)
             for (i in 1..openBracketCount)
                 expList.add(")")
-        Log.d("MainActivity", "expList: $expList")
 
         for (exp in expList) {
             when {
@@ -349,6 +345,62 @@ class MainActivity : AppCompatActivity() {
         openBracketCount = 0
     }
 
+    fun backButtonClicked(v: View) {
+        if (expressionList.isEmpty()) return
+
+        val lastExp = expressionList.last()
+        val leftExp = expressionList.dropLast(1)
+
+        when {
+            lastExp.isOp() -> {
+                expressionList.clear()
+                expressionList.addAll(leftExp)
+                isOperator = false
+            }
+            lastExp.isNumber() -> {
+
+                when (lastExp.length) {
+                    1 -> {
+                        expressionList.clear()
+                        expressionList.addAll(leftExp)
+                        numberCount = 0
+                    }
+                    else -> {
+                        expressionList[expressionList.lastIndex] = lastExp.dropLast(1)
+                        numberCount--
+                        isDotIn = "." in expressionList.last()
+                    }
+                }
+            }
+            lastExp == "(" -> {
+                expressionList.clear()
+                expressionList.addAll(leftExp)
+                openBracketCount--
+            }
+            lastExp == ")" -> {
+                expressionList.clear()
+                expressionList.addAll(leftExp)
+                openBracketCount++
+            }
+        }
+        if (expressionList.isEmpty()) {
+            numberCount = 0
+            openBracketCount = 0
+            isOperator = false
+            hasOperator = false
+            isDotIn = false
+            isResultClicked = false
+
+            expressionTextView.text = ""
+            resultTextView.text = ""
+            return
+        } else {
+            isOperator = expressionList.last().isOp()
+        }
+        expressionTextView.text = getExpressionText()
+        resultTextView.text = calculateExpression()
+    }
+
     fun historyButtonClicked(v: View) {
         historyLayout.isVisible = true
         historyLinearLayout.removeAllViews()
@@ -388,7 +440,6 @@ class MainActivity : AppCompatActivity() {
                 c.isNumber() -> {
                     expressionText += NumberFormat.getInstance(Locale.US).format(c.toBigDecimal())
                         .toString()
-                    Log.d("MainAcitivy", "c: $c, c.last: ${c.last()}")
                     if (c.last()=='.') expressionText = "$expressionText."
                 }
                 /*c.isOperator() -> {
@@ -418,7 +469,7 @@ fun String.isNumber(): Boolean {
     }
 }
 
-fun String.isOperator(): Boolean {
+fun String.isOp(): Boolean {
     return when (this) {
         "+", "-", "×", "÷", "%" -> true
         else -> false

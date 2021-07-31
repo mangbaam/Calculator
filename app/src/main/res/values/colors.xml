@@ -15,5 +15,6 @@
     <color name="green">#7aaf3b</color>
     <color name="greenPress">#618c2f</color>
     <color name="red">#CC3636</color>
+    <color name="nothing">#FFFFFFFF</color>
 
 </resources>
