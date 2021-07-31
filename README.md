@@ -29,6 +29,7 @@ Calculator with history. extendsion function, db with room, layoutInflater
 
 다음 커밋에서는 실제 계산 기능을 도입하고, 자잘한 오류를 잡을 예정
 
+
 ## 2021.07.29
 이번 커밋에서는 실제 계산 기능을 도입했다.
 ### 업데이트 내용
@@ -49,6 +50,7 @@ Calculator with history. extendsion function, db with room, layoutInflater
 - 입력한 수식 하나씩 지우는 버튼
 - 오류 잡기
 
+
 ## 2021.07.30
 ### 업데이트 내용
 - 기능 업데이트는 없고, *버그*를 대부분 잡았다.
@@ -61,3 +63,8 @@ Calculator with history. extendsion function, db with room, layoutInflater
 
 ### 다음 업데이트 예정
 - 앞서 언급한 내용들
+
+
+## 2021.07.31
+### 업데이트 내용
+- 백스페이스 버튼을 만들었다
